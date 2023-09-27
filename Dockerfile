@@ -1,19 +1,19 @@
-FROM node:alpine
+FROM node:20-bookworm-slim as base
+FROM base AS builder
 
-RUN addgroup -S appgroup && \
-  adduser -S appuser -G appgroup && \
-  mkdir -p /home/appuser/app && \
-  chown appuser:appgroup /home/appuser/app
-USER appuser
+WORKDIR /app
+COPY package.json yarn.lock ./
+RUN yarn install --frozen-lockfile
+COPY . .
+RUN yarn build
+
+FROM base as production
 
 RUN yarn config set prefix ~/.yarn && \
   yarn global add serve
 
-WORKDIR /home/appuser/app
-COPY --chown=appuser:appgroup package.json yarn.lock ./
-RUN yarn install --frozen-lockfile
-COPY --chown=appuser:appgroup . .
-RUN yarn build
+WORKDIR /app
+COPY --from=builder /app/dist ./dist
 
 EXPOSE 3000
-CMD ["/home/appuser/.yarn/bin/serve", "-s", "dist", "-l", "3000"]
+CMD ["/root/.yarn/bin/serve", "-s", "dist", "-l", "3000"]
